@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width user-scalable=no">
+    <title>Metronome</title>
+    <link rel="stylesheet" href="css/main.css">
+    <!-- <script src="//cwilso.github.io/AudioContext-MonkeyPatch/AudioContextMonkeyPatch.js"></script> -->
+    <script src="js/metronome.js"></script>
+  </head>
+  <body>
+    <a href="https://github.com/cwilso/metronome" style="position: absolute; top: -5px; right: 15px;">Fork me on GitHub</a>
+    <div id="controls">
+      <div>
+        <a 
+          class="play" 
+          onclick="this.innerText = play();"
+        >
+        Play
+        </a>
+      </div>
+      <div id="tempoBox">Tempo: 
+        <span id="showTempo">120</span>
+        BPM 
+        <input 
+          id="tempo" 
+          type="range" 
+          min="30.0" 
+          max="220.0" 
+          step="1" 
+          value="120" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "tempo = event.target.value; 
+            document.getElementById('showTempo').innerText=tempo;"
+        >
+      </div>
+      <div>Beats Per Measure
+        <span id="showBPM">4</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="1" 
+          max="6" 
+          step="1" 
+          value="4" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "beatsPerMeasure = event.target.value; 
+            document.getElementById('showBPM').innerText=beatsPerMeasure;"
+        >
+      </div>
+      <div>16th Volume
+        <span id="sixtGain">0.1</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".1" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.sixtGain = event.target.value; 
+            document.getElementById('sixtGain').innerText=gainValues.sixtGain;"
+        >
+      </div>
+      <div>8th Volume
+        <span id="eighGain">0.1</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".1" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.eighGain = event.target.value; 
+            document.getElementById('eighGain').innerText=gainValues.eighGain;"
+        >
+      </div>
+      <div>Q Volume
+        <span id="quarGain">0.1</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".1" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.quarGain = event.target.value; 
+            document.getElementById('quarGain').innerText=gainValues.quarGain;"
+        >
+      </div>
+      <div>Triplet Volume
+        <span id="tripGain">0.1</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".1" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.tripGain = event.target.value; 
+            document.getElementById('tripGain').innerText=gainValues.tripGain;"
+        >
+      </div>
+      <div>Measure Volume
+        <span id="measGain">0.1</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".1" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.measGain = event.target.value; 
+            document.getElementById('measGain').innerText=gainValues.measGain;"
+        >
+      </div>
+      <div>
+        <span id="beat"> 1 </span>
+      </div>
+      <div>Master Volume
+        <span id="mastGain">0.5</span>
+        <input 
+          id="bpm" 
+          type="range" 
+          min="0" 
+          max="1" 
+          step=".1" 
+          value=".5" 
+          style="height: 20px; width: 200px" 
+          onInput=
+            "gainValues.mastGain = event.target.value; 
+            document.getElementById('mastGain').innerText=gainValues.mastGain;"
+        >
+      </div>
+    </div>
+   </body>
+</html>
