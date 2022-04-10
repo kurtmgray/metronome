@@ -72,12 +72,12 @@ Things to implement:
 	- Overall volume control - overall gain node?
 	- Display the current beat number
 
+	- Tap/Click to set tempo
+	
 	Tone.js?
 	
 	Different sound schemes
 		(load via different sources?)
-
-	Tap/Click to set tempo
 
 	Loops
 		stored in memory (backend)
@@ -90,11 +90,9 @@ Things to implement:
 			number of iterations,
 			what to do at the end of all iterations,
 
-
 	Memory slots for storing loops 
 		titling
 	
-
 	UX
 		Met on load
 		Memory -> login
@@ -103,5 +101,8 @@ Things to implement:
 		Tap -> tap tempo
 		Start/Stop
 
-		
+	Issues:
+		subdivisions become out of sync when speeding up tempo
+			solution to have 5 separate oscillators?
+			maybe solved when loading sounds differently?
 */

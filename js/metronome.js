@@ -57,6 +57,19 @@ let noteLength = 0.05;      // length of "beep" (in seconds)
 //                             // and may or may not have played yet. {note, time}
 let timerWorker = null;     // The Web Worker used to fire timer messages
 
+let lastClick
+
+function handleTap(e) {
+    const timeNow = new Date().getTime()
+    if (lastClick) {
+        const difference = timeNow - lastClick
+        tempo = Math.floor(60000 / difference) 
+    } 
+    lastClick = timeNow
+    console.log(tempo)
+    return tempo
+}
+
 function volume(value) {
     return gainValues.mastGain * value
 }
@@ -148,34 +161,25 @@ function nextNote(subdivision) {
 
 
 function scheduleNote( value, time ) {
-    // masterGainNode = audioContext.createGain()
-    // masterGainNode.gain.value = gainValues.mastGain
-    // masterGainNode.connect(audioContext.destination)
-    
     osc = audioContext.createOscillator();
     gainNode = audioContext.createGain()
     osc.connect(gainNode);
     gainNode.connect(audioContext.destination)
 
-
     if (value === "quarter") {
-        console.log("quarter")
         playQuarter(time)
     }
     if (value === "triplet") {
-        console.log("triplet")
         if (currentSubdivision.triplet % 3 !== 0) {
             playTriplet(time)
         }
     }
     if (value === "eighth") {
-        console.log("eighth")
         if (currentSubdivision.eighth % 2 !== 0) {
             playEighth(time)
         }     
     }
     if (value === "sixteenth") {
-        console.log("sixteenth")
         if (currentSubdivision.sixteenth % 2 !== 0) {
             playSixteenth(time)
         }
@@ -184,47 +188,6 @@ function scheduleNote( value, time ) {
         console.log("measure")
         playMeasure(time)
     }
-}
-
-function originalScheduleNote( _beatNumber, time ) {
-    // push the note on the queue, even if we're not playing.
-    // notesInQueue.push( { note: beatNumber, time: time } ); this is for visualization
-
-    // beatNumber IS currentSubdivision, aliased for this fn ... why?
-
-    // if ((noteResolution == 1) && (beatNumber % 2))
-    //     return; // we're not playing non-8th 16th notes
-    // if ((noteResolution == 2) && (beatNumber % 4))
-    //     return; // we're not playing non-quarter 8th notes
-
-    // // create an oscillator
-    // const oscSixt = audioContext.createOscillator();
-    // const sixtGainNode = audioContext.createGain()
-    // oscSixt.connect(sixtGainNode);
-    // oscSixt.frequency.value = 880.0;
-    // sixtGainNode.connect(masterGainNode)
-    // sixtGainNode.gain.value = sixtGain
-
-    // if (noteResolution !== 3) {
-    //     if (beatNumber % (beatsPerMeasure * 4) === 0)    // beat 0 == high pitch
-    //         osc.frequency.value = 880.0;
-    //     else if (beatNumber % 4 === 0 )    // quarter notes = medium pitch
-    //         osc.frequency.value = 440.0;
-    //     else                        // other 16ths = low pitch
-    //         osc.frequency.value = 220.0;
-    // } else {
-    //     if (beatNumber % (beatsPerMeasure * 3) === 0)    // beat 0 == high pitch
-    //         osc.frequency.value = 880.0;
-    //     else if (beatNumber % 3 === 0 )    // quarter notes = medium pitch
-    //         osc.frequency.value = 440.0;
-    //     else                        // other triplets = low pitch
-    //         osc.frequency.value = 220.0;
-    // }
-    // time is nextNoteTime, as passed from scheduler.  Why not just use nextNoteTime?
-    
-    oscSixt.start(time)
-    oscSixt.stop(time + noteLength)
-
 }
 
 function scheduler(time) {
@@ -251,6 +214,7 @@ function scheduler(time) {
 }
 
 function play() {
+    lastClick = null
     if (!unlocked) {
       // play silent buffer to unlock the audio
       let buffer = audioContext.createBuffer(1, 1, 22050);
@@ -262,14 +226,13 @@ function play() {
 
     isPlaying = !isPlaying;
 
-    if (isPlaying) { // start playing
+    if (isPlaying) { 
         currentSubdivision = {
             sixteenth: 0,
             eighth: 0,
             quarter: 0,
             triplet: 0
         };
-        console.log(audioContext)
         noteTime = {
             sixteenth: audioContext.currentTime + .05,
             eighth: audioContext.currentTime + .05,

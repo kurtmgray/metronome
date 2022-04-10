@@ -105,7 +105,7 @@
           step=".1" 
           value=".1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.tripGain = event.target.value; 
             document.getElementById('tripGain').innerText=gainValues.tripGain;"
         >
@@ -126,7 +126,7 @@
         >
       </div>
       <div>
-        <span id="beat"> 1 </span>
+        <span id="beat"> </span>
       </div>
       <div>Master Volume
         <span id="mastGain">0.5</span>
@@ -142,6 +142,12 @@
             "gainValues.mastGain = event.target.value; 
             document.getElementById('mastGain').innerText=gainValues.mastGain;"
         >
+      </div>
+      <div>
+        <button 
+          class="tap" 
+          onclick=
+            "document.getElementById('showTempo').innerText=handleTap()">Tap to Set Tempo</button>
       </div>
     </div>
    </body>
