@@ -48,7 +48,8 @@ let gainValues = {          // subdivision and master volume control
     mastGain: .5
 }
    
-// let noteLength = 0.05;      // length of "beep" (in seconds)
+let noteLength = 0.05;      // length of "beep" (in seconds)
+
 // let canvas,                 // the canvas element
 //     canvasContext;          // canvasContext is the canvas' context 2D
 // let last16thNoteDrawn = -1; // the last "box" we drew on the screen
@@ -56,61 +57,43 @@ let gainValues = {          // subdivision and master volume control
 //                             // and may or may not have played yet. {note, time}
 let timerWorker = null;     // The Web Worker used to fire timer messages
 
+function volume(value) {
+    return gainValues.mastGain * value
+}
 
-function playSixteenth(time) {
-    console.log(masterGainNode)
-    oscSixt = audioContext.createOscillator();
-    sixtGainNode = audioContext.createGain()
-    oscSixt.connect(sixtGainNode);
-    oscSixt.frequency.value = 220.0;
-    sixtGainNode.connect(masterGainNode)
-    sixtGainNode.gain.value = gainValues.sixtGain
-    oscSixt.start(time)
-    oscSixt.stop(time + noteLength)
+function playSixteenth(time) {    
+    osc.frequency.value = 220.0;
+    gainNode.gain.value = volume(gainValues.sixtGain)
+    osc.start(time)
+    osc.stop(time + noteLength)
 }
 
 function playEighth(time) {
-    oscEigh = audioContext.createOscillator()
-    eighGainNode = audioContext.createGain()
-    oscEigh.connect(eighGainNode);
-    oscEigh.frequency.value = 260.0;
-    eighGainNode.connect(masterGainNode)
-    eighGainNode.gain.value = gainValues.eighGain
-    oscEigh.start(time)
-    oscEigh.stop(time + noteLength)
+    osc.frequency.value = 260.0;
+    gainNode.gain.value = volume(gainValues.eighGain)
+    osc.start(time)
+    osc.stop(time + noteLength)
 }
 
 function playQuarter(time) {
-    oscQuar = audioContext.createOscillator(); 
-    quarGainNode = audioContext.createGain()
-    oscQuar.connect(quarGainNode);
-    oscQuar.frequency.value = 470.0;
-    quarGainNode.connect(masterGainNode)
-    quarGainNode.gain.value = gainValues.quarGain
-    oscQuar.start(time)
-    oscQuar.stop(time + noteLength);
+    osc.frequency.value = 440.0;
+    gainNode.gain.value = volume(gainValues.quarGain)
+    osc.start(time)
+    osc.stop(time + noteLength);
 }
 
 function playTriplet(time) {
-    oscTrip = audioContext.createOscillator();
-    tripGainNode = audioContext.createGain()
-    oscTrip.connect(tripGainNode);
-    oscTrip.frequency.value = 660.0;
-    tripGainNode.connect(masterGainNode)
-    tripGainNode.gain.value = gainValues.tripGain
-    oscTrip.start(time)
-    oscTrip.stop(time + noteLength);
+    osc.frequency.value = 660.0;
+    gainNode.gain.value = volume(gainValues.tripGain)
+    osc.start(time)
+    osc.stop(time + noteLength);
 }
 
 function playMeasure (time) {    
-    oscMeas = audioContext.createOscillator();
-    measGainNode = audioContext.createGain()
-    oscMeas.connect(measGainNode);
-    oscMeas.frequency.value = 1320.0;
-    measGainNode.connect(masterGainNode)
-    measGainNode.gain.value = gainValues.measGain
-    oscMeas.start(time)
-    oscMeas.stop(time + noteLength)
+    osc.frequency.value = 1320.0;
+    gainNode.gain.value = volume(gainValues.measGain)
+    osc.start(time)
+    osc.stop(time + noteLength)
 }
 // First, let's shim the requestAnimationFrame API, with a setTimeout fallback
 // window.requestAnimFrame = (function(){
@@ -165,9 +148,15 @@ function nextNote(subdivision) {
 
 
 function scheduleNote( value, time ) {
-    masterGainNode = audioContext.createGain()
-    masterGainNode.gain.value = gainValues.mastGain
-    masterGainNode.connect(audioContext.destination)
+    // masterGainNode = audioContext.createGain()
+    // masterGainNode.gain.value = gainValues.mastGain
+    // masterGainNode.connect(audioContext.destination)
+    
+    osc = audioContext.createOscillator();
+    gainNode = audioContext.createGain()
+    osc.connect(gainNode);
+    gainNode.connect(audioContext.destination)
+
 
     if (value === "quarter") {
         console.log("quarter")
@@ -372,3 +361,4 @@ function init(){
 
 window.addEventListener("load", init );
 
+// 
