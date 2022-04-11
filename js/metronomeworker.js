@@ -102,7 +102,11 @@ Things to implement:
 		Start/Stop
 
 	Issues:
-		subdivisions become out of sync when speeding up tempo
+		(SOLVED) subdivisions become out of sync when speeding up tempo
 			solution to have 5 separate oscillators?
 			maybe solved when loading sounds differently?
+			(SOLUTION)
+				run a single osc with a single call to schedule 12lets
+				divide by 12 for Q, 6 for E, 4 for T, 3 for Q, mute all others
+					can do 8 for HNT and 2 for TS
 */

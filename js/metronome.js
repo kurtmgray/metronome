@@ -1,10 +1,6 @@
 let audioContext;
 
-let oscTrip
-let oscEigh
-let oscQuar
-let oscSixt
-let oscMeas
+let osc
 
 let tripGainNode
 let eighGainNode
@@ -16,11 +12,7 @@ let masterGainNode
 let unlocked = false;
 let isPlaying = false;      // Are we currently playing?
 let startTime;              // The start time of the entire sequence.
-let currentSubdivision = {
-    sixteenth: 0,
-    eighth: 0,
-    triplet: 0
-};
+let currentSubdivision;     // the current part of the 12let
 
 let beat = 0                
 let beatsPerMeasure = 4
@@ -31,13 +23,10 @@ let scheduleAheadTime = 0.1;// How far ahead to schedule audio (sec)
                             // This is calculated from lookahead, and overlaps 
                             // with next interval (in case the timer is late)
 
-let noteTime = {            // assigned to current time at play()
-    sixteenth: 0.0,         // scheduled to a new time via a formula involving tempo 
-    eighth: 0.0,            // and fractional subdivision of the beat
-    quarter: 0.0,
-    triplet: 0.0,
-    measure: 0.0
-}
+let noteTime            // assigned to current time at play()
+                        // scheduled to a new time via a formula involving tempo 
+                        // and fractional subdivision of the beat
+  
 
 let gainValues = {          // subdivision and master volume control
     sixtGain: .1,
@@ -45,7 +34,7 @@ let gainValues = {          // subdivision and master volume control
     quarGain: .1,
     tripGain: .1,
     measGain: .1,
-    mastGain: .5
+    mastGain: .1
 }
    
 let noteLength = 0.05;      // length of "beep" (in seconds)
@@ -58,15 +47,18 @@ let noteLength = 0.05;      // length of "beep" (in seconds)
 let timerWorker = null;     // The Web Worker used to fire timer messages
 
 let lastClick
+let secondToLastClick
 
-function handleTap(e) {
+function handleTap() {
     const timeNow = new Date().getTime()
-    if (lastClick) {
-        const difference = timeNow - lastClick
+    if (secondToLastClick) {
+        const difference = timeNow - ((lastClick + secondToLastClick) / 2)
         tempo = Math.floor(60000 / difference) 
     } 
+    secondToLastClick = lastClick
     lastClick = timeNow
-    console.log(tempo)
+    if (tempo > 250) return 250
+    if (tempo < 30) return 30
     return tempo
 }
 
@@ -74,40 +66,6 @@ function volume(value) {
     return gainValues.mastGain * value
 }
 
-function playSixteenth(time) {    
-    osc.frequency.value = 220.0;
-    gainNode.gain.value = volume(gainValues.sixtGain)
-    osc.start(time)
-    osc.stop(time + noteLength)
-}
-
-function playEighth(time) {
-    osc.frequency.value = 260.0;
-    gainNode.gain.value = volume(gainValues.eighGain)
-    osc.start(time)
-    osc.stop(time + noteLength)
-}
-
-function playQuarter(time) {
-    osc.frequency.value = 440.0;
-    gainNode.gain.value = volume(gainValues.quarGain)
-    osc.start(time)
-    osc.stop(time + noteLength);
-}
-
-function playTriplet(time) {
-    osc.frequency.value = 660.0;
-    gainNode.gain.value = volume(gainValues.tripGain)
-    osc.start(time)
-    osc.stop(time + noteLength);
-}
-
-function playMeasure (time) {    
-    osc.frequency.value = 1320.0;
-    gainNode.gain.value = volume(gainValues.measGain)
-    osc.start(time)
-    osc.stop(time + noteLength)
-}
 // First, let's shim the requestAnimationFrame API, with a setTimeout fallback
 // window.requestAnimFrame = (function(){
 //     return  window.requestAnimationFrame ||
@@ -120,101 +78,73 @@ function playMeasure (time) {
 //     };
 // })();
 
-function nextNote(subdivision) {
+function nextNote() {
     // define time at which next note should play
     // secondsPerBeat converts tempo into seconds
-    // subdivision 
     const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT 
                                           // tempo value to calculate beat length.
-    if (subdivision === 0.25) {
-        noteTime.sixteenth += subdivision * secondsPerBeat;
-        currentSubdivision.sixteenth++
-        if (currentSubdivision.sixteenth === 4) {
-            currentSubdivision.sixteenth = 0
-        }    
+    noteTime += (1/12) * secondsPerBeat;
+    currentSubdivision++
+    if (currentSubdivision === beatsPerMeasure * 12) {
+        console.log('measure')
+        currentSubdivision = 0
+        beat = 0
     }
-    if (subdivision === 0.5) {
-        noteTime.eighth += subdivision * secondsPerBeat;
-        currentSubdivision.eighth++
-        if (currentSubdivision.eighth === 2) {
-            currentSubdivision.eighth = 0
-        }    
-    }   
-    if (subdivision === 1/3) {
-        noteTime.triplet += subdivision * secondsPerBeat
-        currentSubdivision.triplet++
-        if (currentSubdivision.triplet === 3) {
-            currentSubdivision.triplet = 0
-        }
-    }
-    if (subdivision === 1) {
-        noteTime.quarter += subdivision * secondsPerBeat;
+    if (currentSubdivision % 12 === 0) {
         beat++
-        document.getElementById('beat').innerText = `Beat ${beat}`    
-    }
-    if (subdivision === beatsPerMeasure) {
-        noteTime.measure += beatsPerMeasure * secondsPerBeat
-        beat = 1
-        document.getElementById('beat').innerText = `Beat ${beat}`    
-    }
+    }    
 }
 
-
-function scheduleNote( value, time ) {
+function scheduleNote( time ) {
+    document.getElementById('beat').innerText = beat
+    
     osc = audioContext.createOscillator();
     gainNode = audioContext.createGain()
     osc.connect(gainNode);
-    gainNode.connect(audioContext.destination)
-
-    if (value === "quarter") {
-        playQuarter(time)
-    }
-    if (value === "triplet") {
-        if (currentSubdivision.triplet % 3 !== 0) {
-            playTriplet(time)
+    gainNode.connect(audioContext.destination)          
+    
+    if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
+        if (gainValues.measGain > 0) {
+            osc.frequency.value = 1340.0;
+            gainNode.gain.value = volume(gainValues.measGain)    
+        } else {
+            osc.frequency.value = 440.0;
+            gainNode.gain.value = volume(gainValues.quarGain)
         }
     }
-    if (value === "eighth") {
-        if (currentSubdivision.eighth % 2 !== 0) {
-            playEighth(time)
-        }     
+    else if (currentSubdivision % 12 === 0) {
+        osc.frequency.value = 440.0;
+        gainNode.gain.value = volume(gainValues.quarGain)
+    } 
+    else if (currentSubdivision % 6 === 0) {
+        osc.frequency.value = 260.0;
+        gainNode.gain.value = volume(gainValues.eighGain)
     }
-    if (value === "sixteenth") {
-        if (currentSubdivision.sixteenth % 2 !== 0) {
-            playSixteenth(time)
-        }
+    else if (currentSubdivision % 4 === 0) {
+        osc.frequency.value = 660.0;
+        gainNode.gain.value = volume(gainValues.tripGain)
     }
-    if (value === "measure") {
-        console.log("measure")
-        playMeasure(time)
+    else if (currentSubdivision % 3 === 0) {
+        osc.frequency.value = 220.0;
+        gainNode.gain.value = volume(gainValues.sixtGain)
+    } else {
+        gainNode.gain.value = 0                             // mute all other 12let notes
     }
+                                                            // use 8 for HNT and 2 for TS
+    osc.start(time)
+    osc.stop(time + noteLength)
 }
 
-function scheduler(time) {
-    if (time.triplet < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("triplet", time.triplet);
-        nextNote(1/3);
-    }
-    if (time.eighth < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("eighth", time.eighth);
-        nextNote(0.5);
-    }
-    if (time.quarter < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("quarter", time.quarter);
-        nextNote(1);
-    }
-    if (time.sixteenth < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("sixteenth", time.sixteenth );
-        nextNote(0.25);
-    }
-    if (time.measure < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("measure", time.measure );
-        nextNote(beatsPerMeasure);
+function scheduler() {
+    if (noteTime < audioContext.currentTime + scheduleAheadTime) {
+        scheduleNote(noteTime);
+        nextNote();
     }
 }
 
 function play() {
     lastClick = null
+    beat = 1
     if (!unlocked) {
       // play silent buffer to unlock the audio
       let buffer = audioContext.createBuffer(1, 1, 22050);
@@ -227,22 +157,12 @@ function play() {
     isPlaying = !isPlaying;
 
     if (isPlaying) { 
-        currentSubdivision = {
-            sixteenth: 0,
-            eighth: 0,
-            quarter: 0,
-            triplet: 0
-        };
-        noteTime = {
-            sixteenth: audioContext.currentTime + .05,
-            eighth: audioContext.currentTime + .05,
-            quarter: audioContext.currentTime + .05,
-            triplet: audioContext.currentTime + .05,
-            measure: audioContext.currentTime + .05 
-        }
+        currentSubdivision = 0
+        noteTime = audioContext.currentTime + .05,
         timerWorker.postMessage("start");
         return "Stop";
     } else {
+        document.getElementById('beat').innerText = 1
         timerWorker.postMessage("stop");
         return "Play";
     }
@@ -314,7 +234,7 @@ function init(){
     timerWorker.onmessage = function(e) {
         if (e.data == "tick") {
             console.log("tick!");
-            scheduler(noteTime);
+            scheduler();
         }
         else
             console.log("message: " + e.data);
