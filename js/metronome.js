@@ -1,6 +1,14 @@
+// const { Tone } = require("tone/build/esm/core/Tone");
+
 let audioContext;
 
 let osc
+
+let loopMode = true
+let loop = 0
+let maxLoops = 4
+let preset = 0
+let totalPresets = 2
 
 let tripGainNode
 let eighGainNode
@@ -29,12 +37,23 @@ let noteTime            // assigned to current time at play()
   
 
 let gainValues = {          // subdivision and master volume control
-    sixtGain: .1,
-    eighGain: .1,
-    quarGain: .1,
-    tripGain: .1,
-    measGain: .1,
-    mastGain: .1
+    sixtGain: 0,
+    eighGain: 0,
+    quarGain: 0,
+    tripGain: 0,
+    measGain: 1,
+    mastGain: 0
+}
+
+let nextLoop1 = {
+    tempo: 160,
+    sixtGain: 3, 
+    eighGain: 1,
+    tripGain: 0,
+    quarGain: 4,
+    measGain: 5,
+    mastGain: 2,
+    maxLoops: 3
 }
    
 let noteLength = 0.05;      // length of "beep" (in seconds)
@@ -48,6 +67,28 @@ let timerWorker = null;     // The Web Worker used to fire timer messages
 
 let lastClick
 let secondToLastClick
+
+function nextLoop(next) {
+    loop = 0
+    if (!next) {
+        preset = 0
+        timerWorker.postMessage("stop");
+        isPlaying = !isPlaying;
+        document.getElementById('beat').innerText = 1
+        document.getElementById('play').innerText = 'Play'
+    }
+    else {
+        preset++
+        tempo = next.tempo
+        gainValues.sixtGain = next.sixtGain 
+        gainValues.eighGain = next.eighGain
+        gainValues.tripGain = next.tripGain
+        gainValues.quarGain = next.quarGain
+        gainValues.measGain = next.measGain
+        gainValues.mastGain = next.mastGain
+        maxLoops = next.maxLoops
+    }
+}
 
 function handleTap() {
     const timeNow = new Date().getTime()
@@ -63,7 +104,7 @@ function handleTap() {
 }
 
 function volume(value) {
-    return gainValues.mastGain * value
+    return (gainValues.mastGain + 1) * value
 }
 
 // First, let's shim the requestAnimationFrame API, with a setTimeout fallback
@@ -89,6 +130,15 @@ function nextNote() {
         console.log('measure')
         currentSubdivision = 0
         beat = 0
+        if (loopMode) {
+            loop++
+        }
+        if (preset === totalPresets) {
+            nextLoop()
+        }
+        if (loop === maxLoops) {    
+            nextLoop(nextLoop1)
+        }
     }
     if (currentSubdivision % 12 === 0) {
         beat++
@@ -97,6 +147,10 @@ function nextNote() {
 
 function scheduleNote( time ) {
     document.getElementById('beat').innerText = beat
+
+    console.log('test')
+
+    // const synth = new Tone.Synth().toDestination()
     
     osc = audioContext.createOscillator();
     gainNode = audioContext.createGain()
@@ -104,30 +158,49 @@ function scheduleNote( time ) {
     gainNode.connect(audioContext.destination)          
     
     if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
-        if (gainValues.measGain > 0) {
+        if (gainValues.measGain > -100) {
+            // synth.volume.value = volume(gainValues.measGain)
+            // synth.triggerAttack("C6", time)
+            // synth.triggerRelease(time + noteLength)
             osc.frequency.value = 1340.0;
             gainNode.gain.value = volume(gainValues.measGain)    
         } else {
+            // synth.volume.value = volume(gainValues.quarGain)
+            // synth.triggerAttack("C5", time)
+            // synth.triggerRelease(time + noteLength)
             osc.frequency.value = 440.0;
             gainNode.gain.value = volume(gainValues.quarGain)
         }
     }
     else if (currentSubdivision % 12 === 0) {
+        // synth.volume.value = volume(gainValues.quarGain)
+        // synth.triggerAttack("C5", time)
+        // synth.triggerRelease(time + noteLength)
         osc.frequency.value = 440.0;
         gainNode.gain.value = volume(gainValues.quarGain)
     } 
     else if (currentSubdivision % 6 === 0) {
+        // synth.volume.value = volume(gainValues.eighGain)
+        // synth.triggerAttack("G4", time)
+        // synth.triggerRelease(time + noteLength)
         osc.frequency.value = 260.0;
         gainNode.gain.value = volume(gainValues.eighGain)
     }
     else if (currentSubdivision % 4 === 0) {
+        // synth.volume.value = volume(gainValues.tripGain)
+        // synth.triggerAttack("C4", time)
+        // synth.triggerRelease(time + noteLength)
         osc.frequency.value = 660.0;
         gainNode.gain.value = volume(gainValues.tripGain)
     }
     else if (currentSubdivision % 3 === 0) {
+        // synth.volume.value = volume(gainValues.sixtGain)
+        // synth.triggerAttack("Eb4", time)
+        // synth.triggerRelease(time + noteLength)
         osc.frequency.value = 220.0;
         gainNode.gain.value = volume(gainValues.sixtGain)
     } else {
+        // synth.volume.value = 0
         gainNode.gain.value = 0                             // mute all other 12let notes
     }
                                                             // use 8 for HNT and 2 for TS
@@ -155,6 +228,10 @@ function play() {
     }
 
     isPlaying = !isPlaying;
+
+    if (loop === maxLoops) {
+        isPlaying = !isPlaying;
+    }
 
     if (isPlaying) { 
         currentSubdivision = 0
@@ -227,7 +304,8 @@ function init(){
     // window.onresize = resetCanvas;
 
     // requestAnimFrame(draw);    // start the drawing loop.
-
+    // Tone.Transport.start(0)
+    // console.log(Tone.Transport)
     audioContext = new AudioContext()
 
     timerWorker = new Worker("js/metronomeworker.js");

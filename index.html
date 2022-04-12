@@ -6,6 +6,7 @@
     <title>Metronome</title>
     <link rel="stylesheet" href="css/main.css">
     <!-- <script src="//cwilso.github.io/AudioContext-MonkeyPatch/AudioContextMonkeyPatch.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.38/Tone.js" integrity="sha512-06fghCFOHDF8cucqI4jKWIO0pCo+5F9upQbLxCEzAHruVuQ9rHQaKK4V9k0sZg6ghi0PqRTA81/jJDzFcKwBfw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="js/metronome.js"></script>
   </head>
   <body>
@@ -13,6 +14,7 @@
     <div id="controls">
       <div>
         <a 
+          id="play"
           class="play" 
           onclick="this.innerText = play();"
         >
