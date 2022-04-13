@@ -34,7 +34,8 @@
           style="height: 20px; width: 200px" 
           onInput=
             "tempo = event.target.value; 
-            document.getElementById('showTempo').innerText=tempo;"
+            document.getElementById('showTempo').innerText=tempo;
+            console.log(tempo)"
         >
       </div>
       <div>Beats Per Measure
@@ -64,7 +65,8 @@
           style="height: 20px; width: 200px" 
           onInput=
             "gainValues.sixtGain = event.target.value; 
-            document.getElementById('sixtGain').innerText=gainValues.sixtGain;"
+            document.getElementById('sixtGain').innerText=gainValues.sixtGain;
+            console.log(gainValues.sixtGain)"
         >
       </div>
       <div>8th Volume
@@ -140,7 +142,7 @@
           step=".1" 
           value=".5" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.mastGain = event.target.value; 
             document.getElementById('mastGain').innerText=gainValues.mastGain;"
         >
@@ -151,6 +153,23 @@
           onclick=
             "document.getElementById('showTempo').innerText=handleTap()">Tap to Set Tempo</button>
       </div>
+      <div>
+        <label for="loop-measures">Number of Measures to Loop</label>
+        <span id="loop-measures"></span>
+        <input 
+          name="loop-measures"
+          type="number"
+          oninput=
+            "maxLoops = parseInt(event.target.value);
+            document.getElementById('loop-measures').innerText = maxLoops;
+            console.log(maxLoops)"
+        >
+      </div>
+      <div>
+        <button onclick="savePresets()">Save as Preset</button>
+      </div>
+      <div class='preset-info'>
+      </div>  
     </div>
    </body>
 </html>

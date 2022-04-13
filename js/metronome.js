@@ -3,12 +3,15 @@
 let audioContext;
 
 let osc
+let audio
 
-let loopMode = true
+const presets = []
+
 let loop = 0
-let maxLoops = 4
-let preset = 0
-let totalPresets = 2
+let maxLoops = 0
+let loopMode = false
+// let preset = 0
+// let totalPresets = presets.length ? presets.length : 0
 
 let tripGainNode
 let eighGainNode
@@ -39,22 +42,22 @@ let noteTime            // assigned to current time at play()
 let gainValues = {          // subdivision and master volume control
     sixtGain: 0,
     eighGain: 0,
-    quarGain: 0,
+    quarGain: 1,
     tripGain: 0,
     measGain: 1,
     mastGain: 0
 }
 
-let nextLoop1 = {
-    tempo: 160,
-    sixtGain: 3, 
-    eighGain: 1,
-    tripGain: 0,
-    quarGain: 4,
-    measGain: 5,
-    mastGain: 2,
-    maxLoops: 3
-}
+// let nextLoop1 = {
+//     tempo: 160,
+//     sixtGain: 1, 
+//     eighGain: 1,
+//     tripGain: 0,
+//     quarGain: 1,
+//     measGain: 1,
+//     mastGain: 1,
+//     maxLoops: 3
+// }
    
 let noteLength = 0.05;      // length of "beep" (in seconds)
 
@@ -68,17 +71,123 @@ let timerWorker = null;     // The Web Worker used to fire timer messages
 let lastClick
 let secondToLastClick
 
+let clapBuffer // measure
+let kickBuffer // quarter
+let snareBuffer // eighth
+let hihatBuffer // sixteenth
+let tomBuffer // triplet
+
+function savePresets() {
+    const preset = {
+        tempo: tempo,
+        sixtGain: gainValues.sixtGain, 
+        eighGain: gainValues.eighGain,
+        tripGain: gainValues.tripGain,
+        quarGain: gainValues.quarGain,
+        measGain: gainValues.measGain,
+        mastGain: gainValues.mastGain,
+        maxLoops: maxLoops
+    }
+    presets.push(preset)
+    console.log(presets)
+}
+
+async function loadTom(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupTom() {
+    tomBuffer = await loadTom('sounds/tom.wav')
+}
+function playTom(buffer, time) {
+    const tomSource = audioContext.createBufferSource()
+    tomSource.buffer = buffer
+    tomSource.connect(gainNode)
+    tomSource.start(time)
+    return tomSource
+}
+
+async function loadHihat(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupHihat() {
+    hihatBuffer = await loadHihat('sounds/hihat.wav')
+}
+function playHihat(buffer, time) {
+    const hihatSource = audioContext.createBufferSource()
+    hihatSource.buffer = buffer
+    hihatSource.connect(gainNode)
+    hihatSource.start(time)
+    return hihatSource
+}
+
+async function loadSnare(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupSnare() {
+    snareBuffer = await loadSnare('sounds/snare.wav')
+}
+function playSnare(buffer, time) {
+    const snareSource = audioContext.createBufferSource()
+    snareSource.buffer = buffer
+    snareSource.connect(gainNode)
+    snareSource.start(time)
+    return snareSource
+}
+
+async function loadKick(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupKick() {
+    kickBuffer = await loadKick('sounds/kick.wav')
+}
+function playKick(buffer, time) {
+    const kickSource = audioContext.createBufferSource()
+    kickSource.buffer = buffer
+    kickSource.connect(gainNode)
+    kickSource.start(time)
+    return kickSource
+}
+
+async function loadClap(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupClap() {
+    clapBuffer = await loadClap('sounds/clap.wav')
+}
+function playClap(buffer, time) {
+    const clapSource = audioContext.createBufferSource()
+    clapSource.buffer = buffer
+    clapSource.connect(gainNode)
+    clapSource.start(time)
+    return clapSource
+}
+
 function nextLoop(next) {
     loop = 0
     if (!next) {
-        preset = 0
+        // preset = 0
         timerWorker.postMessage("stop");
         isPlaying = !isPlaying;
         document.getElementById('beat').innerText = 1
         document.getElementById('play').innerText = 'Play'
     }
     else {
-        preset++
+        // preset++
         tempo = next.tempo
         gainValues.sixtGain = next.sixtGain 
         gainValues.eighGain = next.eighGain
@@ -120,92 +229,69 @@ function volume(value) {
 // })();
 
 function nextNote() {
+    loopMode = maxLoops > 0
     // define time at which next note should play
     // secondsPerBeat converts tempo into seconds
     const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT 
                                           // tempo value to calculate beat length.
     noteTime += (1/12) * secondsPerBeat;
     currentSubdivision++
-    if (currentSubdivision === beatsPerMeasure * 12) {
+    if (currentSubdivision === beatsPerMeasure * 12 || currentSubdivision === 0) {
         console.log('measure')
         currentSubdivision = 0
-        beat = 0
+        beat = 0                                    // reset at measure line for display
+        console.log(loop, maxLoops)
+        console.log(loopMode)
         if (loopMode) {
-            loop++
-        }
-        if (preset === totalPresets) {
-            nextLoop()
-        }
-        if (loop === maxLoops) {    
-            nextLoop(nextLoop1)
+            if (loop === maxLoops) {    
+                // nextLoop(nextLoop1)
+                nextLoop(presets[loop])
+                loop++
+            }
+            // if (preset === totalPresets) {
+            // }
         }
     }
     if (currentSubdivision % 12 === 0) {
-        beat++
+        beat++                                      // beats subdivided into 12 parts to cover 16th, triplets, 8ths
     }    
 }
 
 function scheduleNote( time ) {
     document.getElementById('beat').innerText = beat
-
-    console.log('test')
-
-    // const synth = new Tone.Synth().toDestination()
     
-    osc = audioContext.createOscillator();
     gainNode = audioContext.createGain()
-    osc.connect(gainNode);
     gainNode.connect(audioContext.destination)          
     
     if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
         if (gainValues.measGain > -100) {
-            // synth.volume.value = volume(gainValues.measGain)
-            // synth.triggerAttack("C6", time)
-            // synth.triggerRelease(time + noteLength)
-            osc.frequency.value = 1340.0;
+            playClap(clapBuffer, time)
+            playKick(kickBuffer, time)
             gainNode.gain.value = volume(gainValues.measGain)    
         } else {
-            // synth.volume.value = volume(gainValues.quarGain)
-            // synth.triggerAttack("C5", time)
-            // synth.triggerRelease(time + noteLength)
-            osc.frequency.value = 440.0;
+            playKick(kickBuffer, time)
             gainNode.gain.value = volume(gainValues.quarGain)
         }
     }
     else if (currentSubdivision % 12 === 0) {
-        // synth.volume.value = volume(gainValues.quarGain)
-        // synth.triggerAttack("C5", time)
-        // synth.triggerRelease(time + noteLength)
-        osc.frequency.value = 440.0;
+        playKick(kickBuffer, time)
         gainNode.gain.value = volume(gainValues.quarGain)
     } 
     else if (currentSubdivision % 6 === 0) {
-        // synth.volume.value = volume(gainValues.eighGain)
-        // synth.triggerAttack("G4", time)
-        // synth.triggerRelease(time + noteLength)
-        osc.frequency.value = 260.0;
+        playSnare(snareBuffer, time)
         gainNode.gain.value = volume(gainValues.eighGain)
     }
     else if (currentSubdivision % 4 === 0) {
-        // synth.volume.value = volume(gainValues.tripGain)
-        // synth.triggerAttack("C4", time)
-        // synth.triggerRelease(time + noteLength)
-        osc.frequency.value = 660.0;
+        playTom(tomBuffer, time)
         gainNode.gain.value = volume(gainValues.tripGain)
     }
     else if (currentSubdivision % 3 === 0) {
-        // synth.volume.value = volume(gainValues.sixtGain)
-        // synth.triggerAttack("Eb4", time)
-        // synth.triggerRelease(time + noteLength)
-        osc.frequency.value = 220.0;
+        playHihat(hihatBuffer, time)
         gainNode.gain.value = volume(gainValues.sixtGain)
     } else {
-        // synth.volume.value = 0
         gainNode.gain.value = 0                             // mute all other 12let notes
     }
                                                             // use 8 for HNT and 2 for TS
-    osc.start(time)
-    osc.stop(time + noteLength)
 }
 
 function scheduler() {
@@ -227,11 +313,12 @@ function play() {
       unlocked = true;
     }
 
-    isPlaying = !isPlaying;
-
-    if (loop === maxLoops) {
-        isPlaying = !isPlaying;
+    if (loopMode) {
+        nextLoop(presets[loop])
+        loop++
     }
+
+    isPlaying = !isPlaying;
 
     if (isPlaying) { 
         currentSubdivision = 0
@@ -239,6 +326,7 @@ function play() {
         timerWorker.postMessage("start");
         return "Stop";
     } else {
+        loop = 0
         document.getElementById('beat').innerText = 1
         timerWorker.postMessage("stop");
         return "Play";
@@ -307,11 +395,16 @@ function init(){
     // Tone.Transport.start(0)
     // console.log(Tone.Transport)
     audioContext = new AudioContext()
+    setupClap()
+    setupKick()
+    setupSnare()
+    setupHihat()
+    setupTom()
 
     timerWorker = new Worker("js/metronomeworker.js");
     timerWorker.onmessage = function(e) {
         if (e.data == "tick") {
-            console.log("tick!");
+            // console.log("tick!");
             scheduler();
         }
         else

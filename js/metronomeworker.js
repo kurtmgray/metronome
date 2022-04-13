@@ -6,7 +6,6 @@ self.onmessage=function(e){
 	if (e.data == "start") {
 		console.log("starting");
 		timerID = setInterval(()=>postMessage("tick"),interval)
-		console.log(timerID)
 	}
 	else if (e.data.interval) {
 		console.log("setting interval");
@@ -76,7 +75,7 @@ Things to implement:
 	
 	Tone.js?
 	
-	Different sound schemes
+	- Different sound schemes
 		(load via different sources?)
 
 	Loops
