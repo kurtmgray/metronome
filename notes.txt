@@ -1,0 +1,99 @@
+Flow:
+	init() 
+		establishes audio context and a Worker instance
+		sets a listener (.onmessage) to call scheduler() when "tick" is posted by the worker
+		postMessage {"interval": lookahead} to the worker, worker uses as interval 
+			to postMessage("tick") for calls of scheduler() to occur
+
+	play()
+		handles "locked" audio on some browsers
+		toggles isPlaying - play() also handles stopping
+		if isPlaying, 
+			set currentSubdivision at 0
+			set nextNoteTime to right now
+			send "start" to Worker
+				worker setInterval starts postMessaging "tick" to trigger scheduler() calls
+		if !isPlaying (clicked again to stop)
+			send "stop to worker"
+				worker clears the interval and sets ID to null
+
+	scheduler()
+		while there are notes that are already scheduled (nextNoteTime) to play before
+			now and the scheduleAheadTime
+			scheduleNote(), passing currentSubdivision and the nextNoteTime
+				scheduleNote() processes which subdivision we are on, 
+			also call nextNote()
+				which sets nextNoteTime based on the selected resolution and tempo
+
+	nextNote()
+		sets nextNoteTime based on the selected resolution and tempo
+		loops to 0.. currentSubdivision 12 or 16 is treated as beat 1 by the oscillator
+
+
+Things to implement:
+	- All subdivisions playing at once
+	- Volume control on each subdivision (and beat 1 accent)
+	
+	- 16th play only e's and a's
+	- 8th play only +'s
+	
+	- Overall volume control - overall gain node?
+	- Display the current beat number
+
+	- Tap/Click to set tempo
+	
+	Tone.js?
+	
+	- Different sound schemes
+		(load via different sources?)
+
+	
+	Program -> Preset
+		Be able to store in memory (LS fine)
+		Program contains presets, has a Title
+		Preset contains info about:
+			tempo,
+			time signature,
+			subdivision,
+			volume,
+			sound scheme,
+			number of loops before stopping or moving to next preset,
+		Be able to Play a Program once through or Repeat it
+		Be able to reduce the number of clicks in the entire program (half notes)
+		Be able to designate a Preset as a countoff, and not reduce the number of clicks 
+		Be able to edit a Preset
+		Be able to insert a Preset in a specific place (create Preset, edit Program)
+
+	UX
+		Met on load
+		Memory -> login
+		Write -> compose loops
+		Mute -> mute all sounds
+		Tap -> tap tempo
+		Start/Stop
+
+	React
+		Sliders to correct position on preset change (?)
+		Tempo and Gain numbers reflect preset change (easy)
+        Measure number (in programMode)
+		Create preset page
+			preset is auto created in its own program
+			add preset to existing program option
+		Edit preset page
+
+	Issues:
+		(SOLVED) subdivisions become out of sync when speeding up tempo
+			solution to have 5 separate oscillators?
+			maybe solved when loading sounds differently?
+			(SOLUTION)
+				run a single osc with a single call to schedule 12lets
+				divide by 12 for Q, 6 for E, 4 for T, 3 for Q, mute all others
+					can do 8 for HNT and 2 for TS
+		(SOLVED) beat display goes past the set beats per measure if changed at a particular time
+            (SOLUTION) current subdivision was > than bpm * 12, so used >= at 233
+        Measure volume not working, measure gain controlled by quarter gain
+    
+    Down the road
+        handle mixed meter
+
+*/

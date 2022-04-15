@@ -1,54 +1,103 @@
+
 let audioContext;
 
-let oscTrip
-let oscEigh
-let oscQuar
-let oscSixt
-let oscMeas
+let preset = 0              // index in program
+let presetBar = 0           // current bar in the preset
+let maxPresetBars           // total bars in the preset
 
-let tripGainNode
-let eighGainNode
-let quarGainNode
-let sixtGainNode
-let measGainNode
-let masterGainNode
-
-let unlocked = false;
+let unlocked = false;       
 let isPlaying = false;      // Are we currently playing?
 let startTime;              // The start time of the entire sequence.
-let currentSubdivision = {
-    sixteenth: 0,
-    eighth: 0,
-    triplet: 0
-};
+let currentSubdivision;     // the current part of the 12let
 
-let beat = 0                
+let beat = 0                // incremented in nextNote()
 let beatsPerMeasure = 4
 let tempo = 120.0;          // tempo (in beats per minute)
 let lookahead = 25;         // How frequently to call scheduling function (in milliseconds)
+
+// hard coded, to be saved in LS
+const program = [
+    {
+        tempo: 160,
+        sixtGain: 0, 
+        eighGain: 0,
+        tripGain: 1,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 3,
+        beatsPerMeasure: 5,
+        measSound: 'sounds/boom.wav',
+        quarSound: 'sounds/kick.wav',
+        eighSound: 'sounds/tink.wav',
+        tripSound: 'sounds/hihat.wav',
+        sixtSound: 'sounds/ride.wav'
+    },
+    {
+        tempo: 100,
+        sixtGain: 1, 
+        eighGain: 1,
+        tripGain: 0,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 2,
+        beatsPerMeasure: 3,
+        measSound: 'sounds/kick.wav',
+        quarSound: 'sounds/snare.wav',
+        eighSound: 'sounds/hihat.wav',
+        tripSound: 'sounds/tink.wav',
+        sixtSound: 'sounds/openhat.wav'
+    },
+    {
+        tempo: 80,
+        sixtGain: 0, 
+        eighGain: 0,
+        tripGain: 0,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 3,
+        beatsPerMeasure: 2,
+        measSound: 'sounds/ride.wav',
+        quarSound: 'sounds/tink.wav',
+        eighSound: 'sounds/kick.wav',
+        tripSound: 'sounds/ride.wav',
+        sixtSound: 'sounds/hihat.wav'
+    },
+]
+
+let lastPreset = program.length         // index of last preset
+let programMode = false     // toggled on toggleProgramMode()
 
 let scheduleAheadTime = 0.1;// How far ahead to schedule audio (sec)
                             // This is calculated from lookahead, and overlaps 
                             // with next interval (in case the timer is late)
 
-let noteTime = {            // assigned to current time at play()
-    sixteenth: 0.0,         // scheduled to a new time via a formula involving tempo 
-    eighth: 0.0,            // and fractional subdivision of the beat
-    quarter: 0.0,
-    triplet: 0.0,
-    measure: 0.0
+let noteTime                // the time for the next 12let note, assigned to current time at play() then
+                            // scheduled to a new time via a formula involving tempo and fractional subdivision of the beat.
+                            // passed into scheduleNote() 
+  
+// subdivision and master volume control
+let gainValues = {          
+    sixtGain: 0,
+    eighGain: 0,
+    quarGain: 1,
+    tripGain: 0,
+    measGain: 1,
+    mastGain: 0
 }
 
-let gainValues = {          // subdivision and master volume control
-    sixtGain: .1,
-    eighGain: .1,
-    quarGain: .1,
-    tripGain: .1,
-    measGain: .1,
-    mastGain: .5
-}
-   
-// let noteLength = 0.05;      // length of "beep" (in seconds)
+let soundUrls = {
+    // defaults
+    meas: 'sounds/clap.wav',
+    quar: 'sounds/kick.wav',
+    eigh: 'sounds/ride.wav',
+    trip: 'sounds/snare.wav',
+    sixt: 'sounds/tink.wav'
+}   
+let noteLength = 0.05;      // length of "beep" (in seconds)
+
 // let canvas,                 // the canvas element
 //     canvasContext;          // canvasContext is the canvas' context 2D
 // let last16thNoteDrawn = -1; // the last "box" we drew on the screen
@@ -56,62 +105,113 @@ let gainValues = {          // subdivision and master volume control
 //                             // and may or may not have played yet. {note, time}
 let timerWorker = null;     // The Web Worker used to fire timer messages
 
+// tap metronome 
+let lastClick
+let secondToLastClick
 
-function playSixteenth(time) {
-    console.log(masterGainNode)
-    oscSixt = audioContext.createOscillator();
-    sixtGainNode = audioContext.createGain()
-    oscSixt.connect(sixtGainNode);
-    oscSixt.frequency.value = 220.0;
-    sixtGainNode.connect(masterGainNode)
-    sixtGainNode.gain.value = gainValues.sixtGain
-    oscSixt.start(time)
-    oscSixt.stop(time + noteLength)
+// sounds
+let measBuffer // measure
+let quarBuffer // quarter
+let eighBuffer // eighth
+let tripBuffer // triplet
+let sixtBuffer // sixteenth
+
+function toggleProgramMode() {
+    programMode = !programMode
+    if (programMode) {
+        document.getElementById('program-toggle').innerText = "Program mode on."
+    }
+    else {
+        document.getElementById('program-toggle').innerText = "Program mode off."
+
+    }
 }
 
-function playEighth(time) {
-    oscEigh = audioContext.createOscillator()
-    eighGainNode = audioContext.createGain()
-    oscEigh.connect(eighGainNode);
-    oscEigh.frequency.value = 260.0;
-    eighGainNode.connect(masterGainNode)
-    eighGainNode.gain.value = gainValues.eighGain
-    oscEigh.start(time)
-    oscEigh.stop(time + noteLength)
+// implement next
+// function savePresets() {
+//     const preset = {
+//         tempo: tempo,
+//         sixtGain: gainValues.sixtGain, 
+//         eighGain: gainValues.eighGain,
+//         tripGain: gainValues.tripGain,
+//         quarGain: gainValues.quarGain,
+//         measGain: gainValues.measGain,
+//         mastGain: gainValues.mastGain,
+//         maxLoopBars: maxLoopBars
+//     }
+//     program.push(preset)
+// }
+
+async function loadSound(url) {
+    let response = await fetch(url)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    return audioBuffer
+}
+async function setupSounds(urls) {
+    measBuffer = await loadSound(urls.meas)
+    quarBuffer = await loadSound(urls.quar)
+    eighBuffer = await loadSound(urls.eigh)
+    tripBuffer = await loadSound(urls.trip)
+    sixtBuffer = await loadSound(urls.sixt)
+}
+function playSound(buffer, time) {
+    const soundSource = audioContext.createBufferSource()
+    soundSource.buffer = buffer
+    soundSource.connect(gainNode)
+    soundSource.start(time)
+    return soundSource
 }
 
-function playQuarter(time) {
-    oscQuar = audioContext.createOscillator(); 
-    quarGainNode = audioContext.createGain()
-    oscQuar.connect(quarGainNode);
-    oscQuar.frequency.value = 470.0;
-    quarGainNode.connect(masterGainNode)
-    quarGainNode.gain.value = gainValues.quarGain
-    oscQuar.start(time)
-    oscQuar.stop(time + noteLength);
+function playAccent(buffer, time) {
+    const accentSource = audioContext.createBufferSource()
+    accentSource.buffer = buffer
+    accentSource.connect(gainNode)
+    accentSource.start(time)
+    return accentSource
 }
 
-function playTriplet(time) {
-    oscTrip = audioContext.createOscillator();
-    tripGainNode = audioContext.createGain()
-    oscTrip.connect(tripGainNode);
-    oscTrip.frequency.value = 660.0;
-    tripGainNode.connect(masterGainNode)
-    tripGainNode.gain.value = gainValues.tripGain
-    oscTrip.start(time)
-    oscTrip.stop(time + noteLength);
+function nextLoop(next) {
+    presetBar = 0
+    tempo = next.tempo
+    gainValues.sixtGain = next.sixtGain 
+    gainValues.eighGain = next.eighGain
+    gainValues.tripGain = next.tripGain
+    gainValues.quarGain = next.quarGain
+    gainValues.measGain = next.measGain
+    gainValues.mastGain = next.mastGain
+    soundUrls.meas = next.measSound
+    soundUrls.quar = next.quarSound
+    soundUrls.eigh = next.eighSound
+    soundUrls.trip = next.tripSound
+    soundUrls.sixt = next.sixtSound
+    maxPresetBars = next.maxPresetBars
 }
 
-function playMeasure (time) {    
-    oscMeas = audioContext.createOscillator();
-    measGainNode = audioContext.createGain()
-    oscMeas.connect(measGainNode);
-    oscMeas.frequency.value = 1320.0;
-    measGainNode.connect(masterGainNode)
-    measGainNode.gain.value = gainValues.measGain
-    oscMeas.start(time)
-    oscMeas.stop(time + noteLength)
+function stopProgram() {
+    timerWorker.postMessage("stop");
+    isPlaying = !isPlaying;
+    document.getElementById('beat').innerText = 1
+    document.getElementById('play').innerText = 'Play'
 }
+
+function handleTap() {
+    const timeNow = new Date().getTime()
+    if (secondToLastClick) {
+        const difference = (timeNow - secondToLastClick) / 2
+        tempo = Math.floor(60000 / difference) 
+    } 
+    secondToLastClick = lastClick
+    lastClick = timeNow
+    if (tempo > 250) return 250
+    if (tempo < 30) return 30
+    return tempo
+}
+
+function volume(value) {
+    return (gainValues.mastGain + 1) * value
+}
+
 // First, let's shim the requestAnimationFrame API, with a setTimeout fallback
 // window.requestAnimFrame = (function(){
 //     return  window.requestAnimationFrame ||
@@ -124,144 +224,83 @@ function playMeasure (time) {
 //     };
 // })();
 
-function nextNote(subdivision) {
-    // define time at which next note should play
-    // secondsPerBeat converts tempo into seconds
-    // subdivision 
-    const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT 
-                                          // tempo value to calculate beat length.
-    if (subdivision === 0.25) {
-        noteTime.sixteenth += subdivision * secondsPerBeat;
-        currentSubdivision.sixteenth++
-        if (currentSubdivision.sixteenth === 4) {
-            currentSubdivision.sixteenth = 0
-        }    
-    }
-    if (subdivision === 0.5) {
-        noteTime.eighth += subdivision * secondsPerBeat;
-        currentSubdivision.eighth++
-        if (currentSubdivision.eighth === 2) {
-            currentSubdivision.eighth = 0
-        }    
-    }   
-    if (subdivision === 1/3) {
-        noteTime.triplet += subdivision * secondsPerBeat
-        currentSubdivision.triplet++
-        if (currentSubdivision.triplet === 3) {
-            currentSubdivision.triplet = 0
+function nextNote() {
+    const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT tempo value to calculate beat length.
+                                            // secondsPerBeat converts tempo into seconds
+    noteTime += (1/12) * secondsPerBeat;    // beats subdivided into 12 parts to cover 16th, triplets, 8ths   
+                                            // define time at which next note should play
+    currentSubdivision++
+    if (currentSubdivision >= beatsPerMeasure * 12 || currentSubdivision === 0) {
+        console.log('measure')
+        currentSubdivision = 0
+        beat = 0                                    // reset at measure line for display
+        if (programMode) {
+            presetBar++
+            if (presetBar === maxPresetBars && program[preset]) {    
+                nextLoop(program[preset])
+                setupSounds(soundUrls)
+                presetBar = 0                       // reset presetBar for next loop
+                preset++
+            }
+            if (presetBar === maxPresetBars && preset === lastPreset) {
+                stopProgram()
+                presetBar = 0
+                preset = 0
+            }
         }
     }
-    if (subdivision === 1) {
-        noteTime.quarter += subdivision * secondsPerBeat;
-        beat++
-        document.getElementById('beat').innerText = `Beat ${beat}`    
-    }
-    if (subdivision === beatsPerMeasure) {
-        noteTime.measure += beatsPerMeasure * secondsPerBeat
-        beat = 1
-        document.getElementById('beat').innerText = `Beat ${beat}`    
-    }
+    if (currentSubdivision % 12 === 0) {
+        beat++  
+    }                                        
+    document.getElementById('beat').innerText = 'Beat ' + beat
+    document.getElementById('preset-bars').innerText = maxPresetBars
+    document.getElementById('preset-bar').innerText = 'Preset Bar ' + (presetBar + 1)
+    document.getElementById('preset-number').innerText = 'Preset Number ' + (preset)
 }
 
-
-function scheduleNote( value, time ) {
-    masterGainNode = audioContext.createGain()
-    masterGainNode.gain.value = gainValues.mastGain
-    masterGainNode.connect(audioContext.destination)
-
-    if (value === "quarter") {
-        console.log("quarter")
-        playQuarter(time)
-    }
-    if (value === "triplet") {
-        console.log("triplet")
-        if (currentSubdivision.triplet % 3 !== 0) {
-            playTriplet(time)
-        }
-    }
-    if (value === "eighth") {
-        console.log("eighth")
-        if (currentSubdivision.eighth % 2 !== 0) {
-            playEighth(time)
-        }     
-    }
-    if (value === "sixteenth") {
-        console.log("sixteenth")
-        if (currentSubdivision.sixteenth % 2 !== 0) {
-            playSixteenth(time)
-        }
-    }
-    if (value === "measure") {
-        console.log("measure")
-        playMeasure(time)
-    }
-}
-
-function originalScheduleNote( _beatNumber, time ) {
-    // push the note on the queue, even if we're not playing.
-    // notesInQueue.push( { note: beatNumber, time: time } ); this is for visualization
-
-    // beatNumber IS currentSubdivision, aliased for this fn ... why?
-
-    // if ((noteResolution == 1) && (beatNumber % 2))
-    //     return; // we're not playing non-8th 16th notes
-    // if ((noteResolution == 2) && (beatNumber % 4))
-    //     return; // we're not playing non-quarter 8th notes
-
-    // // create an oscillator
-    // const oscSixt = audioContext.createOscillator();
-    // const sixtGainNode = audioContext.createGain()
-    // oscSixt.connect(sixtGainNode);
-    // oscSixt.frequency.value = 880.0;
-    // sixtGainNode.connect(masterGainNode)
-    // sixtGainNode.gain.value = sixtGain
-
-    // if (noteResolution !== 3) {
-    //     if (beatNumber % (beatsPerMeasure * 4) === 0)    // beat 0 == high pitch
-    //         osc.frequency.value = 880.0;
-    //     else if (beatNumber % 4 === 0 )    // quarter notes = medium pitch
-    //         osc.frequency.value = 440.0;
-    //     else                        // other 16ths = low pitch
-    //         osc.frequency.value = 220.0;
-    // } else {
-    //     if (beatNumber % (beatsPerMeasure * 3) === 0)    // beat 0 == high pitch
-    //         osc.frequency.value = 880.0;
-    //     else if (beatNumber % 3 === 0 )    // quarter notes = medium pitch
-    //         osc.frequency.value = 440.0;
-    //     else                        // other triplets = low pitch
-    //         osc.frequency.value = 220.0;
-    // }
-    // time is nextNoteTime, as passed from scheduler.  Why not just use nextNoteTime?
+function scheduleNote( time ) {
+    accentGainNode = audioContext.createGain()
+    accentGainNode.connect(audioContext.destination)
+    gainNode = audioContext.createGain()
+    gainNode.connect(audioContext.destination)          
     
-    oscSixt.start(time)
-    oscSixt.stop(time + noteLength)
-
+    if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
+        if (gainValues.measGain > 0) {
+            playAccent(measBuffer, time)
+            accentGainNode.gain.value = volume(gainValues.measGain)    
+        } 
+    }
+    if (currentSubdivision % 12 === 0) {
+        playSound(quarBuffer, time)
+        gainNode.gain.value = volume(gainValues.quarGain)
+    } 
+    else if (currentSubdivision % 6 === 0) {
+        playSound(eighBuffer, time)
+        gainNode.gain.value = volume(gainValues.eighGain)
+    }
+    else if (currentSubdivision % 4 === 0) {
+        playSound(tripBuffer, time)
+        gainNode.gain.value = volume(gainValues.tripGain)
+    }
+    else if (currentSubdivision % 3 === 0) {
+        playSound(sixtBuffer, time)
+        gainNode.gain.value = volume(gainValues.sixtGain)
+    } else {
+        gainNode.gain.value = 0                             // mute all other 12let notes
+    }
+                                                            // use 8 for HNT and 2 for TS
 }
 
-function scheduler(time) {
-    if (time.triplet < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("triplet", time.triplet);
-        nextNote(1/3);
-    }
-    if (time.eighth < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("eighth", time.eighth);
-        nextNote(0.5);
-    }
-    if (time.quarter < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("quarter", time.quarter);
-        nextNote(1);
-    }
-    if (time.sixteenth < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("sixteenth", time.sixteenth );
-        nextNote(0.25);
-    }
-    if (time.measure < audioContext.currentTime + scheduleAheadTime) {
-        scheduleNote("measure", time.measure );
-        nextNote(beatsPerMeasure);
+function scheduler() {
+    if (noteTime < audioContext.currentTime + scheduleAheadTime) {
+        scheduleNote(noteTime);
+        nextNote();
     }
 }
 
 function play() {
+    lastClick = null
+    beat = 1
     if (!unlocked) {
       // play silent buffer to unlock the audio
       let buffer = audioContext.createBuffer(1, 1, 22050);
@@ -273,24 +312,19 @@ function play() {
 
     isPlaying = !isPlaying;
 
-    if (isPlaying) { // start playing
-        currentSubdivision = {
-            sixteenth: 0,
-            eighth: 0,
-            quarter: 0,
-            triplet: 0
-        };
-        console.log(audioContext)
-        noteTime = {
-            sixteenth: audioContext.currentTime + .05,
-            eighth: audioContext.currentTime + .05,
-            quarter: audioContext.currentTime + .05,
-            triplet: audioContext.currentTime + .05,
-            measure: audioContext.currentTime + .05 
+    if (isPlaying) { 
+        if (programMode) {
+            nextLoop(program[preset])
+            setupSounds(soundUrls)
+            preset++
         }
+        currentSubdivision = 0
+        noteTime = audioContext.currentTime + .05,
         timerWorker.postMessage("start");
         return "Stop";
     } else {
+        preset = 0
+        document.getElementById('beat').innerText = 1
         timerWorker.postMessage("stop");
         return "Play";
     }
@@ -355,14 +389,18 @@ function init(){
     // window.onresize = resetCanvas;
 
     // requestAnimFrame(draw);    // start the drawing loop.
-
+    // Tone.Transport.start(0)
+    // console.log(Tone.Transport)
     audioContext = new AudioContext()
+    
+    
+    setupSounds(soundUrls)      //setup default sounds
 
     timerWorker = new Worker("js/metronomeworker.js");
     timerWorker.onmessage = function(e) {
         if (e.data == "tick") {
-            console.log("tick!");
-            scheduler(noteTime);
+            // console.log("tick!");
+            scheduler();
         }
         else
             console.log("message: " + e.data);
@@ -371,4 +409,3 @@ function init(){
 }
 
 window.addEventListener("load", init );
-

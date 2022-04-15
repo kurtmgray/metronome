@@ -6,6 +6,7 @@
     <title>Metronome</title>
     <link rel="stylesheet" href="css/main.css">
     <!-- <script src="//cwilso.github.io/AudioContext-MonkeyPatch/AudioContextMonkeyPatch.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.38/Tone.js" integrity="sha512-06fghCFOHDF8cucqI4jKWIO0pCo+5F9upQbLxCEzAHruVuQ9rHQaKK4V9k0sZg6ghi0PqRTA81/jJDzFcKwBfw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="js/metronome.js"></script>
   </head>
   <body>
@@ -13,6 +14,7 @@
     <div id="controls">
       <div>
         <a 
+          id="play"
           class="play" 
           onclick="this.innerText = play();"
         >
@@ -32,7 +34,8 @@
           style="height: 20px; width: 200px" 
           onInput=
             "tempo = event.target.value; 
-            document.getElementById('showTempo').innerText=tempo;"
+            document.getElementById('showTempo').innerText=tempo;
+            console.log(tempo)"
         >
       </div>
       <div>Beats Per Measure
@@ -45,88 +48,89 @@
           step="1" 
           value="4" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "beatsPerMeasure = event.target.value; 
             document.getElementById('showBPM').innerText=beatsPerMeasure;"
         >
       </div>
       <div>16th Volume
-        <span id="sixtGain">0.1</span>
+        <span id="sixtGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.sixtGain = event.target.value; 
-            document.getElementById('sixtGain').innerText=gainValues.sixtGain;"
+            document.getElementById('sixtGain').innerText=gainValues.sixtGain;
+            console.log(gainValues.sixtGain)"
         >
       </div>
       <div>8th Volume
-        <span id="eighGain">0.1</span>
+        <span id="eighGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.eighGain = event.target.value; 
             document.getElementById('eighGain').innerText=gainValues.eighGain;"
         >
       </div>
       <div>Q Volume
-        <span id="quarGain">0.1</span>
+        <span id="quarGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.quarGain = event.target.value; 
             document.getElementById('quarGain').innerText=gainValues.quarGain;"
         >
       </div>
       <div>Triplet Volume
-        <span id="tripGain">0.1</span>
+        <span id="tripGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.tripGain = event.target.value; 
             document.getElementById('tripGain').innerText=gainValues.tripGain;"
         >
       </div>
       <div>Measure Volume
-        <span id="measGain">0.1</span>
+        <span id="measGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.measGain = event.target.value; 
             document.getElementById('measGain').innerText=gainValues.measGain;"
         >
       </div>
       <div>
-        <span id="beat"> 1 </span>
+        <span id="beat">Beat 1</span>
       </div>
       <div>Master Volume
         <span id="mastGain">0.5</span>
@@ -138,11 +142,38 @@
           step=".1" 
           value=".5" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.mastGain = event.target.value; 
             document.getElementById('mastGain').innerText=gainValues.mastGain;"
         >
       </div>
+      <div>
+        <button 
+          class="tap" 
+          onclick=
+            "document.getElementById('showTempo').innerText=handleTap()">Tap to Set Tempo</button>
+      </div>
+      <div>
+        <label for="preset-bars">Number of Bars in Preset</label>
+        <span id="preset-bars"></span>
+        <!-- <input 
+          name="preset-bars"
+          type="number"
+          oninput=
+            "maxPresetBars = event.target.value;
+            document.getElementById('preset-bars').innerText = maxPresetBars;
+            console.log(maxPresetBars)"
+        > -->
+      </div>
+      <div>
+        <!-- <button onclick="savePresets()">Save Preset to Program</button> -->
+        <button  onclick="toggleProgramMode()">Toggle Program Mode</button>
+        <span id="program-toggle"></span>
+      </div>
+        <div class='preset-info'>
+        <span id="preset-bar"></span>
+        <span id="preset-number"></span>
+      </div>  
     </div>
    </body>
 </html>
