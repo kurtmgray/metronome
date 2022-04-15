@@ -91,10 +91,10 @@ let gainValues = {
 let soundUrls = {
     // defaults
     meas: 'sounds/clap.wav',
-    quar: 'sounds/openhat.wav',
+    quar: 'sounds/kick.wav',
     eigh: 'sounds/ride.wav',
-    trip: 'sounds/tom.wav',
-    sixt: 'sounds/hihat.wav'
+    trip: 'sounds/snare.wav',
+    sixt: 'sounds/tink.wav'
 }   
 let noteLength = 0.05;      // length of "beep" (in seconds)
 
@@ -198,7 +198,7 @@ function stopProgram() {
 function handleTap() {
     const timeNow = new Date().getTime()
     if (secondToLastClick) {
-        const difference = timeNow - ((lastClick + secondToLastClick) / 2)
+        const difference = (timeNow - secondToLastClick) / 2
         tempo = Math.floor(60000 / difference) 
     } 
     secondToLastClick = lastClick
@@ -230,7 +230,7 @@ function nextNote() {
     noteTime += (1/12) * secondsPerBeat;    // beats subdivided into 12 parts to cover 16th, triplets, 8ths   
                                             // define time at which next note should play
     currentSubdivision++
-    if (currentSubdivision === beatsPerMeasure * 12 || currentSubdivision === 0) {
+    if (currentSubdivision >= beatsPerMeasure * 12 || currentSubdivision === 0) {
         console.log('measure')
         currentSubdivision = 0
         beat = 0                                    // reset at measure line for display
@@ -259,14 +259,15 @@ function nextNote() {
 }
 
 function scheduleNote( time ) {
-    
+    accentGainNode = audioContext.createGain()
+    accentGainNode.connect(audioContext.destination)
     gainNode = audioContext.createGain()
     gainNode.connect(audioContext.destination)          
     
     if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
-        if (gainValues.measGain > -100) {
+        if (gainValues.measGain > 0) {
             playAccent(measBuffer, time)
-            gainNode.gain.value = volume(gainValues.measGain)    
+            accentGainNode.gain.value = volume(gainValues.measGain)    
         } 
     }
     if (currentSubdivision % 12 === 0) {

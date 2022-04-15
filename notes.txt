@@ -89,8 +89,10 @@ Things to implement:
 				run a single osc with a single call to schedule 12lets
 				divide by 12 for Q, 6 for E, 4 for T, 3 for Q, mute all others
 					can do 8 for HNT and 2 for TS
-		beat display goes past the set beats per measure if changed at a particular time
-
+		(SOLVED) beat display goes past the set beats per measure if changed at a particular time
+            (SOLUTION) current subdivision was > than bpm * 12, so used >= at 233
+        Measure volume not working, measure gain controlled by quarter gain
+    
     Down the road
         handle mixed meter
 

@@ -48,66 +48,66 @@
           step="1" 
           value="4" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "beatsPerMeasure = event.target.value; 
             document.getElementById('showBPM').innerText=beatsPerMeasure;"
         >
       </div>
       <div>16th Volume
-        <span id="sixtGain">0.1</span>
+        <span id="sixtGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.sixtGain = event.target.value; 
             document.getElementById('sixtGain').innerText=gainValues.sixtGain;
             console.log(gainValues.sixtGain)"
         >
       </div>
       <div>8th Volume
-        <span id="eighGain">0.1</span>
+        <span id="eighGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.eighGain = event.target.value; 
             document.getElementById('eighGain').innerText=gainValues.eighGain;"
         >
       </div>
       <div>Q Volume
-        <span id="quarGain">0.1</span>
+        <span id="quarGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.quarGain = event.target.value; 
             document.getElementById('quarGain').innerText=gainValues.quarGain;"
         >
       </div>
       <div>Triplet Volume
-        <span id="tripGain">0.1</span>
+        <span id="tripGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
           oninput=
             "gainValues.tripGain = event.target.value; 
@@ -115,22 +115,22 @@
         >
       </div>
       <div>Measure Volume
-        <span id="measGain">0.1</span>
+        <span id="measGain">1</span>
         <input 
           id="bpm" 
           type="range" 
           min="0" 
           max="1" 
           step=".1" 
-          value=".1" 
+          value="1" 
           style="height: 20px; width: 200px" 
-          onInput=
+          oninput=
             "gainValues.measGain = event.target.value; 
             document.getElementById('measGain').innerText=gainValues.measGain;"
         >
       </div>
       <div>
-        <span id="beat"> 1 </span>
+        <span id="beat">Beat 1</span>
       </div>
       <div>Master Volume
         <span id="mastGain">0.5</span>
