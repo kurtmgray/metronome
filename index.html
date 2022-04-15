@@ -154,21 +154,25 @@
             "document.getElementById('showTempo').innerText=handleTap()">Tap to Set Tempo</button>
       </div>
       <div>
-        <label for="loop-measures">Number of Measures to Loop</label>
-        <span id="loop-measures"></span>
-        <input 
-          name="loop-measures"
+        <label for="preset-bars">Number of Bars in Preset</label>
+        <span id="preset-bars"></span>
+        <!-- <input 
+          name="preset-bars"
           type="number"
           oninput=
-            "maxLoops = parseInt(event.target.value);
-            document.getElementById('loop-measures').innerText = maxLoops;
-            console.log(maxLoops)"
-        >
+            "maxPresetBars = event.target.value;
+            document.getElementById('preset-bars').innerText = maxPresetBars;
+            console.log(maxPresetBars)"
+        > -->
       </div>
       <div>
-        <button onclick="savePresets()">Save as Preset</button>
+        <!-- <button onclick="savePresets()">Save Preset to Program</button> -->
+        <button  onclick="toggleProgramMode()">Toggle Program Mode</button>
+        <span id="program-toggle"></span>
       </div>
-      <div class='preset-info'>
+        <div class='preset-info'>
+        <span id="preset-bar"></span>
+        <span id="preset-number"></span>
       </div>  
     </div>
    </body>

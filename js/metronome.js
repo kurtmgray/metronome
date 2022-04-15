@@ -1,45 +1,84 @@
-// const { Tone } = require("tone/build/esm/core/Tone");
 
 let audioContext;
 
-let osc
-let audio
+let preset = 0              // index in program
+let presetBar = 0           // current bar in the preset
+let maxPresetBars           // total bars in the preset
 
-const presets = []
-
-let loop = 0
-let maxLoops = 0
-let loopMode = false
-// let preset = 0
-// let totalPresets = presets.length ? presets.length : 0
-
-let tripGainNode
-let eighGainNode
-let quarGainNode
-let sixtGainNode
-let measGainNode
-let masterGainNode
-
-let unlocked = false;
+let unlocked = false;       
 let isPlaying = false;      // Are we currently playing?
 let startTime;              // The start time of the entire sequence.
 let currentSubdivision;     // the current part of the 12let
 
-let beat = 0                
+let beat = 0                // incremented in nextNote()
 let beatsPerMeasure = 4
 let tempo = 120.0;          // tempo (in beats per minute)
 let lookahead = 25;         // How frequently to call scheduling function (in milliseconds)
+
+const program = [
+    {
+        tempo: 160,
+        sixtGain: 0, 
+        eighGain: 0,
+        tripGain: 1,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 3,
+        beatsPerMeasure: 5,
+        measSound: 'sounds/boom.wav',
+        quarSound: 'sounds/kick.wav',
+        eighSound: 'sounds/tink.wav',
+        tripSound: 'sounds/hihat.wav',
+        sixtSound: 'sounds/ride.wav'
+    },
+    {
+        tempo: 100,
+        sixtGain: 1, 
+        eighGain: 1,
+        tripGain: 0,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 2,
+        beatsPerMeasure: 3,
+        measSound: 'sounds/kick.wav',
+        quarSound: 'sounds/snare.wav',
+        eighSound: 'sounds/hihat.wav',
+        tripSound: 'sounds/tink.wav',
+        sixtSound: 'sounds/openhat.wav'
+    },
+    {
+        tempo: 80,
+        sixtGain: 0, 
+        eighGain: 0,
+        tripGain: 0,
+        quarGain: 1,
+        measGain: 1,
+        mastGain: 1,
+        maxPresetBars: 3,
+        beatsPerMeasure: 2,
+        measSound: 'sounds/ride.wav',
+        quarSound: 'sounds/tink.wav',
+        eighSound: 'sounds/kick.wav',
+        tripSound: 'sounds/ride.wav',
+        sixtSound: 'sounds/hihat.wav'
+    },
+]
+
+let lastPreset = program.length         // index of last preset
+let programMode = false     // toggled on toggleProgramMode()
 
 let scheduleAheadTime = 0.1;// How far ahead to schedule audio (sec)
                             // This is calculated from lookahead, and overlaps 
                             // with next interval (in case the timer is late)
 
-let noteTime            // assigned to current time at play()
-                        // scheduled to a new time via a formula involving tempo 
-                        // and fractional subdivision of the beat
+let noteTime                // the time for the next 12let note, assigned to current time at play() then
+                            // scheduled to a new time via a formula involving tempo and fractional subdivision of the beat.
+                            // passed into scheduleNote() 
   
-
-let gainValues = {          // subdivision and master volume control
+// subdivision and master volume control
+let gainValues = {          
     sixtGain: 0,
     eighGain: 0,
     quarGain: 1,
@@ -48,17 +87,14 @@ let gainValues = {          // subdivision and master volume control
     mastGain: 0
 }
 
-// let nextLoop1 = {
-//     tempo: 160,
-//     sixtGain: 1, 
-//     eighGain: 1,
-//     tripGain: 0,
-//     quarGain: 1,
-//     measGain: 1,
-//     mastGain: 1,
-//     maxLoops: 3
-// }
-   
+let soundUrls = {
+    // defaults
+    meas: 'sounds/clap.wav',
+    quar: 'sounds/openhat.wav',
+    eigh: 'sounds/ride.wav',
+    trip: 'sounds/tom.wav',
+    sixt: 'sounds/hihat.wav'
+}   
 let noteLength = 0.05;      // length of "beep" (in seconds)
 
 // let canvas,                 // the canvas element
@@ -68,135 +104,94 @@ let noteLength = 0.05;      // length of "beep" (in seconds)
 //                             // and may or may not have played yet. {note, time}
 let timerWorker = null;     // The Web Worker used to fire timer messages
 
+// tap metronome 
 let lastClick
 let secondToLastClick
 
-let clapBuffer // measure
-let kickBuffer // quarter
-let snareBuffer // eighth
-let hihatBuffer // sixteenth
-let tomBuffer // triplet
+// sounds
+let measBuffer // measure
+let quarBuffer // quarter
+let eighBuffer // eighth
+let tripBuffer // triplet
+let sixtBuffer // sixteenth
 
-function savePresets() {
-    const preset = {
-        tempo: tempo,
-        sixtGain: gainValues.sixtGain, 
-        eighGain: gainValues.eighGain,
-        tripGain: gainValues.tripGain,
-        quarGain: gainValues.quarGain,
-        measGain: gainValues.measGain,
-        mastGain: gainValues.mastGain,
-        maxLoops: maxLoops
+function toggleProgramMode() {
+    programMode = !programMode
+    if (programMode) {
+        document.getElementById('program-toggle').innerText = "Program mode on."
     }
-    presets.push(preset)
-    console.log(presets)
+    else {
+        document.getElementById('program-toggle').innerText = "Program mode off."
+
+    }
 }
 
-async function loadTom(url) {
+// implement next
+// function savePresets() {
+//     const preset = {
+//         tempo: tempo,
+//         sixtGain: gainValues.sixtGain, 
+//         eighGain: gainValues.eighGain,
+//         tripGain: gainValues.tripGain,
+//         quarGain: gainValues.quarGain,
+//         measGain: gainValues.measGain,
+//         mastGain: gainValues.mastGain,
+//         maxLoopBars: maxLoopBars
+//     }
+//     program.push(preset)
+// }
+
+async function loadSound(url) {
     let response = await fetch(url)
     const arrayBuffer = await response.arrayBuffer()
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
     return audioBuffer
 }
-async function setupTom() {
-    tomBuffer = await loadTom('sounds/tom.wav')
+async function setupSounds(urls) {
+    measBuffer = await loadSound(urls.meas)
+    quarBuffer = await loadSound(urls.quar)
+    eighBuffer = await loadSound(urls.eigh)
+    tripBuffer = await loadSound(urls.trip)
+    sixtBuffer = await loadSound(urls.sixt)
 }
-function playTom(buffer, time) {
-    const tomSource = audioContext.createBufferSource()
-    tomSource.buffer = buffer
-    tomSource.connect(gainNode)
-    tomSource.start(time)
-    return tomSource
-}
-
-async function loadHihat(url) {
-    let response = await fetch(url)
-    const arrayBuffer = await response.arrayBuffer()
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-    return audioBuffer
-}
-async function setupHihat() {
-    hihatBuffer = await loadHihat('sounds/hihat.wav')
-}
-function playHihat(buffer, time) {
-    const hihatSource = audioContext.createBufferSource()
-    hihatSource.buffer = buffer
-    hihatSource.connect(gainNode)
-    hihatSource.start(time)
-    return hihatSource
+function playSound(buffer, time) {
+    const soundSource = audioContext.createBufferSource()
+    soundSource.buffer = buffer
+    soundSource.connect(gainNode)
+    soundSource.start(time)
+    return soundSource
 }
 
-async function loadSnare(url) {
-    let response = await fetch(url)
-    const arrayBuffer = await response.arrayBuffer()
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-    return audioBuffer
-}
-async function setupSnare() {
-    snareBuffer = await loadSnare('sounds/snare.wav')
-}
-function playSnare(buffer, time) {
-    const snareSource = audioContext.createBufferSource()
-    snareSource.buffer = buffer
-    snareSource.connect(gainNode)
-    snareSource.start(time)
-    return snareSource
-}
-
-async function loadKick(url) {
-    let response = await fetch(url)
-    const arrayBuffer = await response.arrayBuffer()
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-    return audioBuffer
-}
-async function setupKick() {
-    kickBuffer = await loadKick('sounds/kick.wav')
-}
-function playKick(buffer, time) {
-    const kickSource = audioContext.createBufferSource()
-    kickSource.buffer = buffer
-    kickSource.connect(gainNode)
-    kickSource.start(time)
-    return kickSource
-}
-
-async function loadClap(url) {
-    let response = await fetch(url)
-    const arrayBuffer = await response.arrayBuffer()
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-    return audioBuffer
-}
-async function setupClap() {
-    clapBuffer = await loadClap('sounds/clap.wav')
-}
-function playClap(buffer, time) {
-    const clapSource = audioContext.createBufferSource()
-    clapSource.buffer = buffer
-    clapSource.connect(gainNode)
-    clapSource.start(time)
-    return clapSource
+function playAccent(buffer, time) {
+    const accentSource = audioContext.createBufferSource()
+    accentSource.buffer = buffer
+    accentSource.connect(gainNode)
+    accentSource.start(time)
+    return accentSource
 }
 
 function nextLoop(next) {
-    loop = 0
-    if (!next) {
-        // preset = 0
-        timerWorker.postMessage("stop");
-        isPlaying = !isPlaying;
-        document.getElementById('beat').innerText = 1
-        document.getElementById('play').innerText = 'Play'
-    }
-    else {
-        // preset++
-        tempo = next.tempo
-        gainValues.sixtGain = next.sixtGain 
-        gainValues.eighGain = next.eighGain
-        gainValues.tripGain = next.tripGain
-        gainValues.quarGain = next.quarGain
-        gainValues.measGain = next.measGain
-        gainValues.mastGain = next.mastGain
-        maxLoops = next.maxLoops
-    }
+    presetBar = 0
+    tempo = next.tempo
+    gainValues.sixtGain = next.sixtGain 
+    gainValues.eighGain = next.eighGain
+    gainValues.tripGain = next.tripGain
+    gainValues.quarGain = next.quarGain
+    gainValues.measGain = next.measGain
+    gainValues.mastGain = next.mastGain
+    soundUrls.meas = next.measSound
+    soundUrls.quar = next.quarSound
+    soundUrls.eigh = next.eighSound
+    soundUrls.trip = next.tripSound
+    soundUrls.sixt = next.sixtSound
+    maxPresetBars = next.maxPresetBars
+}
+
+function stopProgram() {
+    timerWorker.postMessage("stop");
+    isPlaying = !isPlaying;
+    document.getElementById('beat').innerText = 1
+    document.getElementById('play').innerText = 'Play'
 }
 
 function handleTap() {
@@ -229,64 +224,64 @@ function volume(value) {
 // })();
 
 function nextNote() {
-    loopMode = maxLoops > 0
-    // define time at which next note should play
-    // secondsPerBeat converts tempo into seconds
-    const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT 
-                                          // tempo value to calculate beat length.
-    noteTime += (1/12) * secondsPerBeat;
+    const secondsPerBeat = 60.0 / tempo;    // Notice this picks up the CURRENT tempo value to calculate beat length.
+                                            // secondsPerBeat converts tempo into seconds
+    noteTime += (1/12) * secondsPerBeat;    // beats subdivided into 12 parts to cover 16th, triplets, 8ths   
+                                            // define time at which next note should play
     currentSubdivision++
     if (currentSubdivision === beatsPerMeasure * 12 || currentSubdivision === 0) {
         console.log('measure')
         currentSubdivision = 0
         beat = 0                                    // reset at measure line for display
-        console.log(loop, maxLoops)
-        console.log(loopMode)
-        if (loopMode) {
-            if (loop === maxLoops) {    
-                // nextLoop(nextLoop1)
-                nextLoop(presets[loop])
-                loop++
+        if (programMode) {
+            presetBar++
+            if (presetBar === maxPresetBars && program[preset]) {    
+                nextLoop(program[preset])
+                setupSounds(soundUrls)
+                presetBar = 0                       // reset presetBar for next loop
+                preset++
             }
-            // if (preset === totalPresets) {
-            // }
+            if (presetBar === maxPresetBars && preset === lastPreset) {
+                stopProgram()
+                presetBar = 0
+                preset = 0
+            }
         }
     }
     if (currentSubdivision % 12 === 0) {
-        beat++                                      // beats subdivided into 12 parts to cover 16th, triplets, 8ths
-    }    
+        beat++  
+    }                                        
+    document.getElementById('beat').innerText = 'Beat ' + beat
+    document.getElementById('preset-bars').innerText = maxPresetBars
+    document.getElementById('preset-bar').innerText = 'Preset Bar ' + (presetBar + 1)
+    document.getElementById('preset-number').innerText = 'Preset Number ' + (preset)
 }
 
 function scheduleNote( time ) {
-    document.getElementById('beat').innerText = beat
     
     gainNode = audioContext.createGain()
     gainNode.connect(audioContext.destination)          
     
     if (currentSubdivision % (beatsPerMeasure * 12) === 0) {
         if (gainValues.measGain > -100) {
-            playClap(clapBuffer, time)
-            playKick(kickBuffer, time)
+            playAccent(measBuffer, time)
             gainNode.gain.value = volume(gainValues.measGain)    
-        } else {
-            playKick(kickBuffer, time)
-            gainNode.gain.value = volume(gainValues.quarGain)
-        }
+        } 
     }
-    else if (currentSubdivision % 12 === 0) {
-        playKick(kickBuffer, time)
+    if (currentSubdivision % 12 === 0) {
+        playSound(quarBuffer, time)
         gainNode.gain.value = volume(gainValues.quarGain)
     } 
     else if (currentSubdivision % 6 === 0) {
-        playSnare(snareBuffer, time)
+        playSound(eighBuffer, time)
         gainNode.gain.value = volume(gainValues.eighGain)
     }
     else if (currentSubdivision % 4 === 0) {
-        playTom(tomBuffer, time)
+        playSound(tripBuffer, time)
         gainNode.gain.value = volume(gainValues.tripGain)
     }
     else if (currentSubdivision % 3 === 0) {
-        playHihat(hihatBuffer, time)
+        playSound(sixtBuffer, time)
         gainNode.gain.value = volume(gainValues.sixtGain)
     } else {
         gainNode.gain.value = 0                             // mute all other 12let notes
@@ -313,20 +308,20 @@ function play() {
       unlocked = true;
     }
 
-    if (loopMode) {
-        nextLoop(presets[loop])
-        loop++
-    }
-
     isPlaying = !isPlaying;
 
     if (isPlaying) { 
+        if (programMode) {
+            nextLoop(program[preset])
+            setupSounds(soundUrls)
+            preset++
+        }
         currentSubdivision = 0
         noteTime = audioContext.currentTime + .05,
         timerWorker.postMessage("start");
         return "Stop";
     } else {
-        loop = 0
+        preset = 0
         document.getElementById('beat').innerText = 1
         timerWorker.postMessage("stop");
         return "Play";
@@ -395,11 +390,9 @@ function init(){
     // Tone.Transport.start(0)
     // console.log(Tone.Transport)
     audioContext = new AudioContext()
-    setupClap()
-    setupKick()
-    setupSnare()
-    setupHihat()
-    setupTom()
+    
+    
+    setupSounds(soundUrls)      //setup default sounds
 
     timerWorker = new Worker("js/metronomeworker.js");
     timerWorker.onmessage = function(e) {
@@ -414,5 +407,3 @@ function init(){
 }
 
 window.addEventListener("load", init );
-
-// 
