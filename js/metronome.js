@@ -15,6 +15,7 @@ let beatsPerMeasure = 4
 let tempo = 120.0;          // tempo (in beats per minute)
 let lookahead = 25;         // How frequently to call scheduling function (in milliseconds)
 
+// hard coded, to be saved in LS
 const program = [
     {
         tempo: 160,
